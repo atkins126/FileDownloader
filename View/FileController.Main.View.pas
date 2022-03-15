@@ -1,3 +1,16 @@
+{
+  *********************************
+  (C)riado por Magno Lima 2022
+
+  Uso:
+  - Criar o objeto TDownloadFile
+  - Atribuir lista de arquivos na propriedade FilesToDownload
+  - Atribuir pasta para salvar arquivos
+  - Iniciar download chamando StartDownload
+  - Usar Abort para interromper
+
+  *********************************
+}
 unit FileController.Main.View;
 
 interface
