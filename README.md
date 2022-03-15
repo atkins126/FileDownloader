@@ -34,7 +34,7 @@ Foi habilitado o ReportMemoryLeaksOnShutdown pois o código apresenta leak de me
 
 Vários outros detalhes da solução podem ser conferidos verificando o código. Os comentários está minimizados para apenas pontos de atenção.
 
-
+Maior toxidade: TDownloadFile.InitializeDownloader de 1,01 em 21 linhas
 
 
 
