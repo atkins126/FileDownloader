@@ -89,6 +89,7 @@
         <Icon_MainIcon>Resources\Icon_770x770.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>Resources\Icon_770x770.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>Resources\Icon_770x770.png</UWP_DelphiLogo150>
+        <DCC_ExeOutput>.\Bin</DCC_ExeOutput>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>

@@ -63,12 +63,13 @@ type
     procedure btShowLogClick(Sender: TObject);
     procedure ResetLogDownloadGrid;
   private
-    procedure ProcessDownloadQueue;
+    procedure ForkGUI;
     function AddLink(const NewLink: String; ListOfLinks: TCheckListBox): Boolean;
     procedure DeleteLink(ListOfLinks: TCheckListBox);
     procedure DownloadFinished;
     procedure ShowDownloadHistory;
     procedure LoadDownloadGrid;
+    procedure UpdateGUI(const Detail: String);
     { Private declarations }
   public
     { Public declarations }
@@ -83,17 +84,23 @@ implementation
 
 {$R *.dfm}
 
-procedure TViewDownload.ProcessDownloadQueue;
+procedure TViewDownload.UpdateGUI(const Detail: String);
 begin
-  DownloadFile.DownloadFolder := DownloadFolder;
-  DownloadFile.FilesToDownload := ['https://magnumlabs.com.br/eyeson/eyesonapk', 'https://magnumlabs.com.br/eyeson/eyeson.apk'];
-  DownloadFile.StartDownload;
+  lbFile.Caption := Detail;
+  ProgressBar1.Position := DownloadFile.Position;
+  if DownloadFile.Status = dsNotFound then
+    mmInfo.Lines.Add(Detail + ': não encontrado.');
+  if DownloadFile.Status = dsDone then
+    mmInfo.Lines.Add(Detail + ': baixado com sucesso.');
+end;
 
+procedure TViewDownload.ForkGUI;
+begin
   tthread.CreateAnonymousThread(
     procedure
     var
       InQueue: Integer;
-      downloading: String;
+      Detail: String;
     begin
 
       InQueue := 0;
@@ -106,22 +113,16 @@ begin
 
         if DownloadFile.FileInQueue <> InQueue then
         begin
-          downloading := Format('%s - %d/%d', [DownloadFile.FileName, DownloadFile.FileInQueue, DownloadFile.TotalFilesInQueue]);
-
+          Detail := Format('%s - %d/%d', [DownloadFile.FileName, DownloadFile.FileInQueue, DownloadFile.TotalFilesInQueue]);
           InQueue := DownloadFile.FileInQueue;
           ProgressBar1.Max := 100;
           ProgressBar1.Position := 0;
-          lbFile.Caption := downloading;
         end;
 
-        tthread.Synchronize(nil,
+        tthread.Synchronize(tthread.CurrentThread,
           procedure
           begin
-            ProgressBar1.Position := DownloadFile.Position;
-            if DownloadFile.Status = dsNotFound then
-              mmInfo.Lines.Add(downloading + ': não encontrado.');
-            if DownloadFile.Status = dsDone then
-              mmInfo.Lines.Add(downloading + ': baixado com sucesso.');
+            UpdateGUI(Detail);
           end);
       end;
 
@@ -142,7 +143,7 @@ begin
   if DownloadFile.Status = dsError then
     MessageDlg('Erro ao receber arquivo', TMsgDlgType.mtError, [TMsgDlgBtn.mbOK], 0);
 
-  //if DownloadFile.Status = TDownloadStatus.dsFinished then
+  // if DownloadFile.Status = TDownloadStatus.dsFinished then
 
   btAction.Caption := 'Download';
   btReturn.Enabled := True;
@@ -241,7 +242,10 @@ begin
   CardPanel.ActiveCard := cardDownload;
   btReturn.Visible := True;
   btAction.Caption := 'Cancelar';
-  ProcessDownloadQueue();
+  DownloadFile.DownloadFolder := DownloadFolder;
+  DownloadFile.FilesToDownload := ['https://magnumlabs.com.br/eyeson/eyesonapk', 'https://magnumlabs.com.br/eyeson/eyeson.apk'];
+  DownloadFile.StartDownload;
+  ForkGUI();
 end;
 
 procedure TViewDownload.btNextClick(Sender: TObject);

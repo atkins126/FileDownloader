@@ -58,6 +58,7 @@ type
 {$ENDIF}
     procedure InitializeDownloader;
     procedure ClientRequestError(const Sender: TObject; const AError: string);
+    function CreateStreamFile(const AURL: String): Boolean;
   public
     FFileInQueue: Integer;
     constructor Create(AOwner: TComponent);
@@ -235,6 +236,18 @@ begin
       Result := TDownloadErrorLevel.dlInvalidUrl;
 end;
 
+function TDownloadFile.CreateStreamFile(const AURL: String): Boolean;
+begin
+  FTemporaryFileName := TPath.GetTempFileName;
+  FFileName := ExtractFileNameFromUrl(AURL);
+  try
+    FFileStream := TFileStream.Create(FTemporaryFileName, fmCreate);
+    Result := True;
+  except
+    Result := False;
+  end;
+end;
+
 procedure TDownloadFile.InitializeDownloader;
 begin
   LinkDownloader := TThread.CreateAnonymousThread(
@@ -248,25 +261,19 @@ begin
         for Url in FFilesToDownload do
         begin
 
-          if Url.IsEmpty then
-            Continue;
-
-          FTemporaryFileName := TPath.GetTempFileName;
-          FFileName := ExtractFileNameFromUrl(Url);
-          try
-            FFileStream := TFileStream.Create(FTemporaryFileName, fmCreate);
-          except
+          if not CreateStreamFile(Url) then
+          begin
             FDownloadStatus := TDownloadStatus.dsError;
             Continue;
           end;
 
           try
-            FDownloadStatus := TDownloadStatus.dsDownloading;
             // Estamos considerando que o arquivo é distribuido via recurso de link
             // e não via alguma API, e neste ultimo caso o programa deveria utilizar
             // o define USING_ATTACHMENT. Além disso, no mundo real o downloader
             // poderia dar ao usuario a oportunidade de continuar ou abortar toda a fila
             // caso algum arquivo apresente erro, no momento ele segue para o próximo
+            FDownloadStatus := TDownloadStatus.dsDownloading;
             FHttpEngine.Get(Url, FFileStream);
           Except
             FDownloadStatus := TDownloadStatus.dsError;
