@@ -2,13 +2,15 @@
   *********************************
   (C)riado por Magno Lima 2022
 
-  Uso:
-  - Criar o objeto TDownloadFile
-  - Atribuir lista de arquivos na propriedade FilesToDownload
-  - Atribuir pasta para salvar arquivos
-  - Iniciar download chamando StartDownload
-  - Usar Abort para interromper
+  A database SQLite será criada na primeira execução
+  na pasta \Database no mesmo nível do executável.
+  A lista de arquivos é gerada dinamicamente e são
+  simples endereços url saltados por linha.
+  O processo não é multithread e as variáveis usadas
+  na engine de download não são thread-safe!
 
+  Mais informações no README.md
+  https://github.com/magnolima/FileDownloader
   *********************************
 }
 unit FileController.Main.View;
