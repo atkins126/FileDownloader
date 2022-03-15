@@ -47,6 +47,9 @@ type
     FDownloadStatus: TDownloadStatus;
     FTotalFilesInQueue: Integer;
     LinkDownloader: TThread;
+    FStartTime: TDateTime;
+    FEndTime: TDateTime;
+    FUrl: String;
     procedure OnRequestCompleted(const Sender: TObject; const AResponse: IHTTPResponse);
     procedure ClearList;
     procedure setFilesToDownload(const Value: TStringDynArray);
@@ -59,6 +62,7 @@ type
     procedure InitializeDownloader;
     procedure ClientRequestError(const Sender: TObject; const AError: string);
     function CreateStreamFile(const AURL: String): Boolean;
+    procedure BeginDownload(const AURL: String);
   public
     FFileInQueue: Integer;
     constructor Create(AOwner: TComponent);
@@ -69,12 +73,15 @@ type
     property FilesToDownload: TStringDynArray read FFilesToDownload write setFilesToDownload;
     property Position: Integer read FPosition;
     property IsDownloading: Boolean read FIsDownloading;
+    property Url: String read FUrl;
     property DownloadFolder: String read FDownloadDirectory write FDownloadDirectory;
     property FileName: String read FFileName;
     property TotalFilesInQueue: Integer read FTotalFilesInQueue;
     property FileInQueue: Integer read FFileInQueue;
     property Status: TDownloadStatus read FDownloadStatus;
     property ErrorLevel: TDownloadErrorLevel read FErrorLevel;
+    property StartTime: TDateTime read FStartTime;
+    property EndTime: TDateTime read FEndTime;
   end;
 
 implementation
@@ -185,6 +192,7 @@ begin
     FileName := FDownloadDirectory + TPath.DirectorySeparatorChar + FFileName;
     DeleteFile(FFileName);
     FDownloadStatus := TDownloadStatus.dsDone;
+    FEndTime := Now();
     if RenameFile(FTemporaryFileName, FileName) then
     begin
       FDownloadStatus := TDownloadStatus.dsDone;
@@ -242,10 +250,19 @@ begin
   FFileName := ExtractFileNameFromUrl(AURL);
   try
     FFileStream := TFileStream.Create(FTemporaryFileName, fmCreate);
-    Result := True;
+    Result := true;
   except
     Result := False;
   end;
+end;
+
+procedure TDownloadFile.BeginDownload(const AURL: String);
+begin
+  FUrl := AURL;
+  FDownloadStatus := TDownloadStatus.dsDownloading;
+  FStartTime := Now();
+  FEndTime := 0;
+  FHttpEngine.Get(AURL, FFileStream);
 end;
 
 procedure TDownloadFile.InitializeDownloader;
@@ -273,8 +290,7 @@ begin
             // o define USING_ATTACHMENT. Além disso, no mundo real o downloader
             // poderia dar ao usuario a oportunidade de continuar ou abortar toda a fila
             // caso algum arquivo apresente erro, no momento ele segue para o próximo
-            FDownloadStatus := TDownloadStatus.dsDownloading;
-            FHttpEngine.Get(Url, FFileStream);
+            BeginDownload(Url);
           Except
             FDownloadStatus := TDownloadStatus.dsError;
           end;

@@ -56,6 +56,7 @@ object ViewDownload: TViewDownload
       Caption = 'cardFileSelection'
       CardIndex = 0
       TabOrder = 0
+      ExplicitTop = 1
       object Label1: TLabel
         Left = 16
         Top = 12

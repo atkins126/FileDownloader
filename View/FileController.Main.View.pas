@@ -85,6 +85,7 @@ type
     procedure ShowDownloadHistory;
     procedure LoadDownloadGrid;
     procedure UpdateGUI(const Detail: String);
+    procedure InsertLogDownload;
     { Private declarations }
   public
     { Public declarations }
@@ -106,7 +107,21 @@ begin
   if DownloadFile.Status = dsNotFound then
     mmInfo.Lines.Add(Detail + ': não encontrado.');
   if DownloadFile.Status = dsDone then
+  begin
+    InsertLogDownload();
     mmInfo.Lines.Add(Detail + ': baixado com sucesso.');
+  end;
+end;
+
+procedure TViewDownload.InsertLogDownload;
+var
+  DataUrl: TDataUrl;
+begin
+  DataUrl := TDataUrl.Create;
+  DataUrl.URL := DownloadFile.Url;
+  DataUrl.DataInicio := DownloadFile.StartTime;
+  DataUrl.DataFim := DownloadFile.EndTime;
+  FileDownloaderDataModule.InsertLogDownload(DataUrl);
 end;
 
 procedure TViewDownload.ForkGUI;
@@ -157,8 +172,6 @@ begin
 
   if DownloadFile.Status = dsError then
     MessageDlg('Erro ao receber arquivo', TMsgDlgType.mtError, [TMsgDlgBtn.mbOK], 0);
-
-  // if DownloadFile.Status = TDownloadStatus.dsFinished then
 
   btAction.Caption := 'Download';
   btReturn.Enabled := True;
@@ -304,17 +317,6 @@ procedure TViewDownload.ShowDownloadHistory;
 begin
   ResetLogDownloadGrid();
   LoadDownloadGrid();
-
-  // LogDownload := TLogDownload.Create;
-  // try
-  // LogDownload.URL := DateTimeToStr(now);
-  // LogDownload.DataInicio := now() - 1 / 30;
-  // LogDownload.DataInicio := now();
-  // FileDownloaderDataModule.InsertLogDownload(LogDownload);
-  // finally
-  // LogDownload.Free;
-  // end;
-
 end;
 
 procedure TViewDownload.btShowLogClick(Sender: TObject);

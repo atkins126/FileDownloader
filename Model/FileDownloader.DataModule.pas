@@ -50,7 +50,7 @@ type
   public
     { Public declarations }
     ListOfLogDownload: TList<TDataUrl>;
-    procedure InsertLogDownload(LogDownload: TDataUrl);
+    procedure InsertLogDownload(DataUrl: TDataUrl);
     procedure OpenLog;
 
   end;
@@ -138,7 +138,7 @@ begin
   SQLConnection.Params.Values['Database'] := RESOURCE_DIR + DATABASE_NAME;
 end;
 
-procedure TFileDownloaderDataModule.InsertLogDownload(LogDownload: TDataUrl);
+procedure TFileDownloaderDataModule.InsertLogDownload(DataUrl: TDataUrl);
 var
   query: TFDQuery;
 begin
@@ -146,9 +146,9 @@ begin
   try
     query.Connection := SQLConnection;
     query.Sql.Text := SQL_INSERT_URL;
-    query.ParamByName('URL').AsString := LogDownload.URL;
-    query.ParamByName('DATAINICIO').AsDateTime := LogDownload.DataInicio;
-    query.ParamByName('DATAFIM').AsDateTime := LogDownload.DataFim;
+    query.ParamByName('URL').AsString := DataUrl.URL;
+    query.ParamByName('DATAINICIO').AsDateTime := DataUrl.DataInicio;
+    query.ParamByName('DATAFIM').AsDateTime := DataUrl.DataFim;
     query.ExecSQL;
   finally
     query.Free;
