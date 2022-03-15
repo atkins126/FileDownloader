@@ -1,0 +1,2 @@
+http://mirror.mrjester.net/ubuntu/release/18.04.4/ubuntu-18.04.4-desktop-amd64.iso
+https://az764295.vo.msecnd.net/stable/78a4c91400152c0f27ba4d363eb56d2835f9903a/VSCodeUserSetup-x64-1.43.0.exe
