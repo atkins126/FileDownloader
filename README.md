@@ -1,4 +1,5 @@
 # FileDownloader
+
 FileDownloader é um programa de teste de recursos para baixar vários arquivos. O programa permite incluir uma lista de arquivos para download, via interface ou um arquivo de texto correspondente, porém não é multithread. Os arquivos serão enfileirados e baixados um por um. Mudar para uma versão multithread é o ideal, mas isso levaria um pouco mais de tempo.
 
 Este projeto começou com o uso do padrão de projeto Observer, mas rapidamente identifiquei que tal solução seria custosa para o propósito, é um típico excesso de engenharia porque em tese apenas um único observer seria o receptor neste projeto e o Observer não seria a solução mais adequada. Sendo mais adepto do princípio kiss, removi isto do projeto.
@@ -11,7 +12,7 @@ O programa foi desenvolvido utilizando o Delphi 10.4.2 Community Edition. Não h
 
 **Sobre o uso**
 
-A interface apresenta uma lista de arquivos pré-preenchida, com subsídios sugeridos para o teste. Esta lista é carregada a partir de um arquivo texto. Novos itens podem ser incluídos ou removidos da lista.O tratamento dos links, que são digitados, é feita por simples sanitização utilizando uma regra de expressão regular, o conteúdo entretanto não é testado no tempo de inclusão do link (não faz-se acesso ao endpoint para validação - é inclusive desnecessário).
+A interface apresenta uma lista de arquivos pré-preenchida, com subsídios sugeridos para o teste. Esta lista é carregada a partir de um arquivo texto. Novos itens podem ser incluídos ou removidos da lista. O tratamento dos links, que são digitados, é feita por simples sanitização utilizando uma regra de expressão regular, o conteúdo entretanto não é testado no tempo de inclusão do link (não faz-se acesso ao endpoint para validação - é inclusive desnecessário).
 
 Procurei seguir os critérios de aceite propostos, entretanto devido ao design da tela e sua simplicidade, algumas coisas como textos de botões sugeridos foram adaptados. A interface não é, eventualmente, a mais amigável, entretanto procurei deixar o mais simples quanto possível.
 
@@ -34,5 +35,10 @@ Foi habilitado o ReportMemoryLeaksOnShutdown pois o código apresenta leak de me
 
 Vários outros detalhes da solução podem ser conferidos verificando o código. Os comentários está minimizados para apenas pontos de atenção.
 
-Maior toxidade: TDownloadFile.InitializeDownloader de 1,01 em 21 linhas
+Observações:
 
+1) Não foram gerados os testes unitários, até porque deveriam ter sido antes de iniciar a implementação do código 
+2) Há ao menos um bug evidente: durante o download o programa deveria mostrar a informação que um arquivo inexistente não foi encontrado, porém devido ao sincronismo da thread isto está falhando, penso ser uma condição de race-codition na hora de atualizar o detalhe do arquivo que está em download, de qualquer forma um workaround aplicado foi a criação de uma lista de erros
+3) Algumas vezes, ao menos em modo debug, a interface "congela" durante o download. Este comportamento inesperado pode estar associado as interrupções do debug em si
+4) Maior toxidade encontrada em TDownloadFile.OnRequestCompleted: 0,68 em 20 linhas
+5) A versão do binário encontra-se na pasta \Bin

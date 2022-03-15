@@ -56,8 +56,7 @@ object ViewDownload: TViewDownload
       Caption = 'cardFileSelection'
       CardIndex = 0
       TabOrder = 0
-      ExplicitTop = 1
-      object Label1: TLabel
+      object lbInfoList: TLabel
         Left = 16
         Top = 12
         Width = 182
@@ -119,7 +118,7 @@ object ViewDownload: TViewDownload
           00000000000000000000}
         OnClick = sbDeleteLinkClick
       end
-      object Label2: TLabel
+      object lbInfoFile: TLabel
         Left = 16
         Top = 115
         Width = 72
@@ -160,7 +159,7 @@ object ViewDownload: TViewDownload
           00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FFFF00FF}
         OnClick = sbClearAllClick
       end
-      object lbDestination: TLabel
+      object lbInfoDestination: TLabel
         Left = 16
         Top = 191
         Width = 65
@@ -175,7 +174,7 @@ object ViewDownload: TViewDownload
         Caption = '...'
         OnClick = sbSelectFolderClick
       end
-      object sbClearedLink: TSpeedButton
+      object sbClearLink: TSpeedButton
         Left = 392
         Top = 127
         Width = 24
@@ -223,7 +222,7 @@ object ViewDownload: TViewDownload
           19000005020C0000001C03000000171B00000000051100000015021800000000
           00000000000000001A02020D0F00000000000000000000160D0202020D180000
           0000000000001A1302020202020203040E0A0A0E1A0302020202}
-        OnClick = sbClearedLinkClick
+        OnClick = sbClearLinkClick
       end
       object cbFilesToDownload: TCheckListBox
         Left = 16

@@ -46,10 +46,11 @@ type
     FErrorLevel: TDownloadErrorLevel;
     FDownloadStatus: TDownloadStatus;
     FTotalFilesInQueue: Integer;
-    LinkDownloader: TThread;
+    FDownloader: TThread;
     FStartTime: TDateTime;
     FEndTime: TDateTime;
     FUrl: String;
+    FListOfErrors: TStringList;
     procedure OnRequestCompleted(const Sender: TObject; const AResponse: IHTTPResponse);
     procedure ClearList;
     procedure setFilesToDownload(const Value: TStringDynArray);
@@ -62,7 +63,7 @@ type
     procedure InitializeDownloader;
     procedure ClientRequestError(const Sender: TObject; const AError: string);
     function CreateStreamFile(const AURL: String): Boolean;
-    procedure BeginDownload(const AURL: String);
+    function BeginDownload(const AURL: String): Boolean;
   public
     FFileInQueue: Integer;
     constructor Create(AOwner: TComponent);
@@ -82,6 +83,7 @@ type
     property ErrorLevel: TDownloadErrorLevel read FErrorLevel;
     property StartTime: TDateTime read FStartTime;
     property EndTime: TDateTime read FEndTime;
+    property ListOfErrors: TStringList read FListOfErrors;
   end;
 
 implementation
@@ -95,30 +97,20 @@ begin
   FHttpEngine.OnReceiveData := OnReceiveData;
   FHttpEngine.OnRequestError := ClientRequestError;
   FHttpEngine.OnRequestCompleted := OnRequestCompleted;
+  FListOfErrors := TStringList.Create;
 end;
 
 destructor TDownloadFile.Destroy;
 begin
-  if Assigned(FFileStream) then
-    FFileStream.Free;
-  FHttpEngine.Free;
+  Self.ClearList;
+  FListOfErrors.Free;
+  FreeAndNil(FHttpEngine);
   inherited;
 end;
 
 procedure TDownloadFile.ClientRequestError(const Sender: TObject; const AError: string);
 begin
   FDownloadStatus := TDownloadStatus.dsError;
-end;
-
-procedure TDownloadFile.Abort;
-begin
-  if not Assigned(LinkDownloader) then
-    Exit;
-  if LinkDownloader.Started then
-    LinkDownloader.Terminate;
-  Self.ClearList;
-  FIsDownloading := False;
-  FDownloadStatus := TDownloadStatus.dsAborted;
 end;
 
 procedure TDownloadFile.ClearList;
@@ -162,6 +154,8 @@ begin
 end;
 {$ENDIF}
 
+// Estamos considerando que o arquivo é distribuido via recurso de link,
+// para eventuais casos de API o programa deveria utilizar o define USING_ATTACHMENT
 procedure TDownloadFile.OnRequestCompleted(const Sender: TObject; const AResponse: IHTTPResponse);
 var
   FileName: String;
@@ -176,6 +170,7 @@ begin
 
   if AResponse.StatusCode = FILE_NOT_FOUND then
   begin
+    ListOfErrors.Add(FFileName+' não encontrado');
     FDownloadStatus := TDownloadStatus.dsNotFound;
     FHasContent := False;
     Exit;
@@ -208,13 +203,27 @@ begin
   FFilesToDownload := Value;
 end;
 
+procedure TDownloadFile.Abort;
+begin
+  FIsDownloading := False;
+  FDownloadStatus := TDownloadStatus.dsAborted;
+
+  if Assigned(FDownloader) and FDownloader.Started then
+    FDownloader.Terminate;
+
+  Self.ClearList;
+
+end;
+
 procedure TDownloadFile.OnReceiveData(const Sender: TObject; AContentLength, AReadCount: Int64; var Abort: Boolean);
 begin
-  if not Self.IsDownloading then
+
+  if FDownloadStatus = TDownloadStatus.dsAborted then
   begin
     Abort := true;
     Exit;
   end;
+
   if AContentLength > 0 then
     FHasContent := true;
 
@@ -235,7 +244,7 @@ begin
       Inc(FTotalFilesInQueue);
     end;
 
-  // Caso alguma url se torne invalida, todo o processo será
+  // Caso alguma url se torne inválida, todo o processo será
   // abortado, porque a sanitização das url apenas consegue
   // dar alguma garantia quanto ao formato, mas não ao existência
   // do recurso.
@@ -256,18 +265,31 @@ begin
   end;
 end;
 
-procedure TDownloadFile.BeginDownload(const AURL: String);
+function TDownloadFile.BeginDownload(const AURL: String): Boolean;
 begin
   FUrl := AURL;
   FDownloadStatus := TDownloadStatus.dsDownloading;
   FStartTime := Now();
-  FEndTime := 0;
-  FHttpEngine.Get(AURL, FFileStream);
+  FEndTime := FStartTime;
+  Result := CreateStreamFile(Url);
+
+  if Result then
+  begin
+
+    FHttpEngine.Get(AURL, FFileStream);
+
+    if FDownloadStatus = TDownloadStatus.dsNotFound then
+      Sleep(1);
+
+  end;
+  FEndTime := Now();
+
 end;
 
 procedure TDownloadFile.InitializeDownloader;
 begin
-  LinkDownloader := TThread.CreateAnonymousThread(
+  FIsDownloading := true;
+  FDownloader := TThread.CreateAnonymousThread(
     procedure
     var
       Url: String;
@@ -278,19 +300,11 @@ begin
         for Url in FFilesToDownload do
         begin
 
-          if not CreateStreamFile(Url) then
-          begin
-            FDownloadStatus := TDownloadStatus.dsError;
-            Continue;
-          end;
-
           try
-            // Estamos considerando que o arquivo é distribuido via recurso de link
-            // e não via alguma API, e neste ultimo caso o programa deveria utilizar
-            // o define USING_ATTACHMENT. Além disso, no mundo real o downloader
-            // poderia dar ao usuario a oportunidade de continuar ou abortar toda a fila
-            // caso algum arquivo apresente erro, no momento ele segue para o próximo
-            BeginDownload(Url);
+            if not BeginDownload(Url) then
+              Continue;
+
+
           Except
             FDownloadStatus := TDownloadStatus.dsError;
           end;
@@ -311,7 +325,8 @@ begin
       end;
 
     end);
-  LinkDownloader.start;
+  FDownloader.FreeOnTerminate := true;
+  FDownloader.start;
 end;
 
 procedure TDownloadFile.DownloadFiles;
@@ -323,7 +338,7 @@ procedure TDownloadFile.StartDownload;
 var
   TestFiles: TDownloadErrorLevel;
 begin
-  FIsDownloading := true;
+
   TestFiles := HasFileToDownload();
 
   if TestFiles = TDownloadErrorLevel.dlNoFiles then
@@ -333,6 +348,7 @@ begin
     raise Exception.Create('Url para download é invalida');
 
   DownloadFiles();
+
 end;
 
 end.

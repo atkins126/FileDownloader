@@ -3,7 +3,7 @@
   (C)riado por Magno Lima 2022
 
   A database SQLite será criada na primeira execução
-  na pasta \Database no mesmo nível do executável.
+  na pasta .\Database no mesmo nível do executável.
   A lista de arquivos é gerada dinamicamente e são
   simples endereços url saltados por linha.
   O processo não é multithread e as variáveis usadas
@@ -20,7 +20,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, System.Generics.Collections, System.Threading,
-  Vcl.ComCtrls, System.IOUtils,
+  Vcl.ComCtrls, System.IOUtils, System.Types,
   Vcl.CheckLst, Vcl.WinXPanels, Vcl.ExtCtrls, Vcl.Buttons,
   System.Actions, Vcl.ActnList,
   FileDownload.Common.Controller,
@@ -48,22 +48,21 @@ type
     lbFile: TLabel;
     mmInfo: TMemo;
     cbFilesToDownload: TCheckListBox;
-    Label1: TLabel;
+    lbInfoList: TLabel;
     sbAddLink: TSpeedButton;
     sbDeleteLink: TSpeedButton;
     edLink: TEdit;
-    Label2: TLabel;
+    lbInfoFile: TLabel;
     sbClearAll: TSpeedButton;
     edDownloadFolder: TEdit;
-    lbDestination: TLabel;
+    lbInfoDestination: TLabel;
     sbSelectFolder: TSpeedButton;
-    sbClearedLink: TSpeedButton;
+    sbClearLink: TSpeedButton;
     btShowLog: TButton;
     cardDownloadHistory: TCard;
     sgLogDownload: TStringGrid;
     procedure FormCreate(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure btNextClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure cbFilesToDownloadClickCheck(Sender: TObject);
     procedure cbFilesToDownloadClick(Sender: TObject);
@@ -71,21 +70,22 @@ type
     procedure sbClearAllClick(Sender: TObject);
     procedure sbDeleteLinkClick(Sender: TObject);
     procedure sbSelectFolderClick(Sender: TObject);
-    procedure sbClearedLinkClick(Sender: TObject);
+    procedure sbClearLinkClick(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure btReturnClick(Sender: TObject);
     procedure btActionClick(Sender: TObject);
     procedure btShowLogClick(Sender: TObject);
     procedure ResetLogDownloadGrid;
   private
-    procedure ForkGUI;
-    function AddLink(const NewLink: String; ListOfLinks: TCheckListBox): Boolean;
     procedure DeleteLink(ListOfLinks: TCheckListBox);
     procedure DownloadFinished;
     procedure ShowDownloadHistory;
     procedure LoadDownloadGrid;
+    procedure ForkGUI;
     procedure UpdateGUI(const Detail: String);
     procedure InsertLogDownload;
+    function AddLink(const NewLink: String; ListOfLinks: TCheckListBox): Boolean;
+    function CheckForAbort: Boolean;
     { Private declarations }
   public
     { Public declarations }
@@ -95,6 +95,7 @@ var
   ViewDownload: TViewDownload;
   DownloadFile: TDownloadFile;
   DownloadFolder: String;
+  FilesToDownload: TStringDynArray;
 
 implementation
 
@@ -104,8 +105,6 @@ procedure TViewDownload.UpdateGUI(const Detail: String);
 begin
   lbFile.Caption := Detail;
   ProgressBar1.Position := DownloadFile.Position;
-  if DownloadFile.Status = dsNotFound then
-    mmInfo.Lines.Add(Detail + ': não encontrado.');
   if DownloadFile.Status = dsDone then
   begin
     InsertLogDownload();
@@ -118,21 +117,23 @@ var
   DataUrl: TDataUrl;
 begin
   DataUrl := TDataUrl.Create;
-  DataUrl.URL := DownloadFile.Url;
+  DataUrl.URL := DownloadFile.URL;
   DataUrl.DataInicio := DownloadFile.StartTime;
   DataUrl.DataFim := DownloadFile.EndTime;
-  FileDownloaderDataModule.InsertLogDownload(DataUrl);
+  FileDownloaderDataModule.InsertLog(DataUrl);
 end;
 
 procedure TViewDownload.ForkGUI;
+var
+  fork: TThread;
 begin
-  tthread.CreateAnonymousThread(
+  fork := TThread.CreateAnonymousThread(
     procedure
     var
       InQueue: Integer;
       Detail: String;
     begin
-
+      DownloadFile.StartDownload;
       InQueue := 0;
 
       while DownloadFile.IsDownloading do
@@ -141,37 +142,47 @@ begin
         if DownloadFile.Status = dsNone then
           Continue;
 
-        if DownloadFile.FileInQueue <> InQueue then
+        if (DownloadFile.FileInQueue <> InQueue) then
         begin
+          if DownloadFile.FileName = '' then
+            Continue;
           Detail := Format('%s - %d/%d', [DownloadFile.FileName, DownloadFile.FileInQueue, DownloadFile.TotalFilesInQueue]);
           InQueue := DownloadFile.FileInQueue;
           ProgressBar1.Max := 100;
           ProgressBar1.Position := 0;
         end;
 
-        tthread.Synchronize(tthread.CurrentThread,
+        TThread.Synchronize(TThread.CurrentThread,
           procedure
           begin
             UpdateGUI(Detail);
           end);
       end;
 
-      tthread.Synchronize(nil,
+      TThread.Synchronize(TThread.CurrentThread,
         procedure
         begin
           DownloadFinished();
         end);
 
-    end).Start;
+    end);
+  fork.FreeOnTerminate := True;
+  fork.Start;
+
 end;
 
 procedure TViewDownload.DownloadFinished;
+var
+  ErrorMessage: String;
 begin
   if DownloadFile.Status = dsAborted then
     MessageDlg('Download interrompido', TMsgDlgType.mtInformation, [TMsgDlgBtn.mbOK], 0);
 
   if DownloadFile.Status = dsError then
     MessageDlg('Erro ao receber arquivo', TMsgDlgType.mtError, [TMsgDlgBtn.mbOK], 0);
+
+  for ErrorMessage in DownloadFile.ListOfErrors do
+    mmInfo.Lines.Add(ErrorMessage);
 
   btAction.Caption := 'Download';
   btReturn.Enabled := True;
@@ -181,6 +192,7 @@ function TViewDownload.AddLink(const NewLink: String; ListOfLinks: TCheckListBox
 begin
   if NewLink.IsEmpty then
     exit;
+
   Result := SanitizeUrl([NewLink.Trim]);
   if Result and (ListOfLinks.Items.IndexOf(NewLink.Trim) = -1) then
   begin
@@ -229,11 +241,11 @@ begin
       Abort;
     DownloadFolder := OpenDialog.FileName;
   finally
-    OpenDialog.Free;
+    FreeAndNil(OpenDialog);
   end;
 end;
 
-procedure TViewDownload.sbClearedLinkClick(Sender: TObject);
+procedure TViewDownload.sbClearLinkClick(Sender: TObject);
 begin
   edLink.Clear;
 end;
@@ -249,51 +261,46 @@ var
   i: Integer;
 begin
   btAction.Enabled := False;
+  FilesToDownload := nil;
+
   for i := 0 to Pred(cbFilesToDownload.Count) do
     if cbFilesToDownload.checked[i] then
-    begin
+    begin;
       btAction.Enabled := True;
-      break;
+      SetLength(FilesToDownload, Length(FilesToDownload) + 1);
+      FilesToDownload[Length(FilesToDownload) - 1] := cbFilesToDownload.Items[i];
+
+    end;
+end;
+
+function TViewDownload.CheckForAbort(): Boolean;
+begin
+  Result := False;
+  if DownloadFile.IsDownloading then
+    if MessageDlg('Interromper download?', TMsgDlgType.mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], 0) = mrYes then
+    begin
+      Result := True;
+      DownloadFile.Abort;
     end;
 end;
 
 procedure TViewDownload.btActionClick(Sender: TObject);
 begin
+  if not Assigned(DownloadFile) then
+    DownloadFile := TDownloadFile.Create(Self);
 
-  if DownloadFile.IsDownloading then
-  begin
-    if MessageDlg('Interromper download?', TMsgDlgType.mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], 0) = mrYes then
-      DownloadFile.Abort;
+  if CheckForAbort() then
     exit;
-  end;
 
+  mmInfo.Clear;
   CardPanel.ActiveCard := cardDownload;
   btReturn.Visible := True;
+  btReturn.Enabled := False;
   btAction.Caption := 'Cancelar';
   DownloadFile.DownloadFolder := DownloadFolder;
-  DownloadFile.FilesToDownload := ['https://magnumlabs.com.br/eyeson/eyesonapk', 'https://magnumlabs.com.br/eyeson/eyeson.apk'];
-  DownloadFile.StartDownload;
+  DownloadFile.FilesToDownload := FilesToDownload;
+
   ForkGUI();
-end;
-
-procedure TViewDownload.btNextClick(Sender: TObject);
-begin
-
-  if DownloadFile.Status = TDownloadStatus.dsFinished then
-    Close;
-
-  if DownloadFile.IsDownloading then
-  begin
-    if MessageDlg('Interromper download?', TMsgDlgType.mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], 0) = mrYes then
-      DownloadFile.Abort;
-  end;
-
-  if DownloadFile.Status = dsAborted then
-    MessageDlg('Download interrompito', TMsgDlgType.mtInformation, [TMsgDlgBtn.mbOK], 0);
-
-  if DownloadFile.Status = dsError then
-    MessageDlg('Erro ao receber arquivo', TMsgDlgType.mtError, [TMsgDlgBtn.mbOK], 0);
-
 end;
 
 procedure TViewDownload.btReturnClick(Sender: TObject);
@@ -321,6 +328,8 @@ end;
 
 procedure TViewDownload.btShowLogClick(Sender: TObject);
 begin
+  btReturn.Visible := False;
+  btAction.Enabled := False;
   if CardPanel.ActiveCard = cardDownloadHistory then
   begin
     btShowLog.Caption := 'Exibir histórico de downloads';
@@ -334,21 +343,34 @@ end;
 
 procedure TViewDownload.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  if DownloadFile.IsDownloading then
-    DownloadFile.Abort;
-  DownloadFile.Free;
+  if Assigned(DownloadFile) then
+  begin
+    if DownloadFile.IsDownloading then
+      DownloadFile.Abort;
+    FileDownloaderDataModule.EmptyLog;
+  end;
 end;
 
 procedure TViewDownload.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  CanClose := not DownloadFile.IsDownloading;
-  if DownloadFile.IsDownloading then
-    ShowMessage('Download em andamento. Interrompa primeiro.')
+  if Assigned(DownloadFile) then
+  begin
+    CanClose := not DownloadFile.IsDownloading;
+    if DownloadFile.IsDownloading then
+    begin
+      // A opcao de apenas informar seria mais adequada...
+      // ShowMessage('Download em andamento. Interrompa primeiro.')
+      CheckForAbort();
+      CanClose := not DownloadFile.IsDownloading;
+    end;
+  end
+  else
+    CanClose := True;
 end;
 
 procedure TViewDownload.ResetLogDownloadGrid;
 begin
-  sgLogDownload.RowCount := 0;
+  // sgLogDownload.RowCount := 0;
   sgLogDownload.RowCount := 2;
   sgLogDownload.FixedRows := 1;
   sgLogDownload.Cells[0, 0] := 'Código';
@@ -359,7 +381,6 @@ end;
 
 procedure TViewDownload.FormCreate(Sender: TObject);
 begin
-  DownloadFile := TDownloadFile.Create(Self);
   CardPanel.ActiveCard := cardFileSelection;
   ResetLogDownloadGrid();
 end;
@@ -391,10 +412,5 @@ begin
   Self.RowCount := Self.RowCount + 1;
 
 end;
-
-initialization
-
-// Tratar leak de memoria quando fechar a tela durante download
-ReportMemoryLeaksOnShutdown := True;
 
 end.

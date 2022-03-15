@@ -6,7 +6,7 @@
   Existem algumas particularidades quando
   tratamos com o SQLite em termos de criacao
   do banco e inserção de dados, como a necessidade
-  de fechar o banco para commitar o "journal"
+  de fechar o banco para salvar o "journal"
 }
 unit FileDownloader.DataModule;
 
@@ -45,12 +45,13 @@ type
     procedure DataModuleDestroy(Sender: TObject);
   private
     procedure CreateDatabase;
-    procedure ClearListOfLogDownload;
+
     { Private declarations }
   public
     { Public declarations }
     ListOfLogDownload: TList<TDataUrl>;
-    procedure InsertLogDownload(DataUrl: TDataUrl);
+    procedure EmptyLog;
+    procedure InsertLog(DataUrl: TDataUrl);
     procedure OpenLog;
 
   end;
@@ -71,7 +72,7 @@ var
 begin
   query := TFDQuery.create(nil);
 
-  Self.ClearListOfLogDownload();
+  Self.EmptyLog();
 
   try
     query.Connection := SQLConnection;
@@ -86,16 +87,16 @@ begin
       query.Next;
     end;
   finally
-    query.Free;
+    FreeAndNil(query);
   end;
 end;
 
-procedure TFileDownloaderDataModule.ClearListOfLogDownload;
+procedure TFileDownloaderDataModule.EmptyLog;
 var
   LogDownload: TDataUrl;
 begin
   for LogDownload in ListOfLogDownload do
-    LogDownload.free;
+    FreeAndNil(LogDownload);
   ListOfLogDownload.Clear;
   ListOfLogDownload.TrimExcess;
 end;
@@ -110,7 +111,7 @@ begin
     query.Sql.Text := DDL_DATABASE;
     query.ExecSQL;
   finally
-    query.Free;
+    FreeAndNil(query);
   end;
   SQLConnection.Close;
 end;
@@ -127,10 +128,8 @@ end;
 
 procedure TFileDownloaderDataModule.DataModuleDestroy(Sender: TObject);
 begin
-  Self.ClearListOfLogDownload();
-  ListOfLogDownload.Free;
-  ListOfLogDownload := nil;
-
+  Self.EmptyLog;
+  FreeAndNil(ListOfLogDownload);
 end;
 
 procedure TFileDownloaderDataModule.SQLConnectionBeforeConnect(Sender: TObject);
@@ -138,7 +137,7 @@ begin
   SQLConnection.Params.Values['Database'] := RESOURCE_DIR + DATABASE_NAME;
 end;
 
-procedure TFileDownloaderDataModule.InsertLogDownload(DataUrl: TDataUrl);
+procedure TFileDownloaderDataModule.InsertLog(DataUrl: TDataUrl);
 var
   query: TFDQuery;
 begin
@@ -151,10 +150,9 @@ begin
     query.ParamByName('DATAFIM').AsDateTime := DataUrl.DataFim;
     query.ExecSQL;
   finally
-    query.Free;
+    FreeAndNil(query);
   end;
   SQLConnection.Close;
 end;
 
 end.
-
