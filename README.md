@@ -11,7 +11,7 @@ O programa foi desenvolvido utilizando o Delphi 10.4.2 Community Edition. Não h
 
 **Sobre o uso**
 
-A interface apresenta uma lista de arquivos pré-preenchida, com subsídios sugeridos para o teste. Esta lista é carregada a partir de um arquivo texto. Novos itens podem ser incluídos ou removidos da lista.O tratamento dos links, que são digitados, é feita por simples sanitização utilizando uma regra de expressão regular, o conteúdo entretanto não é testado no tempo de inclusão do link.
+A interface apresenta uma lista de arquivos pré-preenchida, com subsídios sugeridos para o teste. Esta lista é carregada a partir de um arquivo texto. Novos itens podem ser incluídos ou removidos da lista.O tratamento dos links, que são digitados, é feita por simples sanitização utilizando uma regra de expressão regular, o conteúdo entretanto não é testado no tempo de inclusão do link (não faz-se acesso ao endpoint para validação - é inclusive desnecessário).
 
 Procurei seguir os critérios de aceite propostos, entretanto devido ao design da tela e sua simplicidade, algumas coisas como textos de botões sugeridos foram adaptados. A interface não é, eventualmente, a mais amigável, entretanto procurei deixar o mais simples quanto possível.
 
@@ -27,6 +27,10 @@ A classe principal, TDownloadFile, possuí os seguintes métodos e propriedades 
 - TotalFilesInQueue - total de arquivos na fila
 - FileInQueue - indice do arquivo que está sendo baixado no momento
 - Status - indicador de status do arquivo atual 
+
+Além da engine, a View pode ser melhorada em demasia, no que diz respeito a sua arquitetura, como aplicar o uso de actions para manipular ações e textos dos botões dinâmicos, infelizmente faltou tempo para estes detalhes.
+
+Foi habilitado o ReportMemoryLeaksOnShutdown pois o código apresenta leak de memória em algumas condições e igualmente não foi possível efetuar toda a depuração a tempo.
 
 Vários outros detalhes da solução podem ser conferidos verificando o código. Os comentários está minimizados para apenas pontos de atenção.
 
