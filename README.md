@@ -31,14 +31,12 @@ A classe principal, TDownloadFile, possuí os seguintes métodos e propriedades 
 
 Além da engine, a View pode ser melhorada em demasia, no que diz respeito a sua arquitetura, como aplicar o uso de actions para manipular ações e textos dos botões dinâmicos, infelizmente faltou tempo para estes detalhes.
 
-Foi habilitado o ReportMemoryLeaksOnShutdown pois o código apresenta leak de memória em algumas condições e igualmente não foi possível efetuar toda a depuração a tempo.
-
-Vários outros detalhes da solução podem ser conferidos verificando o código. Os comentários está minimizados para apenas pontos de atenção.
+Vários outros detalhes da solução podem ser conferidos verificando o código. Os comentários estão minimizados para apenas pontos de atenção.
 
 Observações:
 
 1) Não foram gerados os testes unitários, até porque deveriam ter sido antes de iniciar a implementação do código 
-2) Há ao menos um bug evidente: durante o download o programa deveria mostrar a informação que um arquivo inexistente não foi encontrado, porém devido ao sincronismo da thread isto está falhando, penso ser uma condição de race-codition na hora de atualizar o detalhe do arquivo que está em download, de qualquer forma um workaround aplicado foi a criação de uma lista de erros
+2) Há ao menos um bug simples: durante o download o programa deveria mostrar a informação que um arquivo inexistente não foi encontrado, porém devido ao sincronismo da thread isto está falhando, penso ser uma condição de race-codition na hora de atualizar o detalhe do arquivo que está em download, de qualquer forma um workaround aplicado foi a criação de uma lista de erros
 3) Algumas vezes, ao menos em modo debug, a interface "congela" durante o download. Este comportamento inesperado pode estar associado as interrupções do debug em si
 4) Maior toxidade encontrada em TDownloadFile.OnRequestCompleted: 0,68 em 20 linhas
 5) A versão do binário encontra-se na pasta \Bin
