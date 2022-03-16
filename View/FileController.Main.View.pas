@@ -78,7 +78,7 @@ type
     procedure ResetLogDownloadGrid;
   private
     procedure DeleteLink(ListOfLinks: TCheckListBox);
-    procedure DownloadFinished;
+    procedure DownloadFinished(Sender: TObject);
     procedure ShowDownloadHistory;
     procedure LoadDownloadGrid;
     procedure ForkGUI;
@@ -86,6 +86,7 @@ type
     procedure InsertLogDownload;
     function AddLink(const NewLink: String; ListOfLinks: TCheckListBox): Boolean;
     function CheckForAbort: Boolean;
+    procedure DownloadSucess(Sender: TObject);
     { Private declarations }
   public
     { Public declarations }
@@ -105,11 +106,11 @@ procedure TViewDownload.UpdateGUI(const Detail: String);
 begin
   lbFile.Caption := Detail;
   ProgressBar1.Position := DownloadFile.Position;
-  if DownloadFile.Status = dsDone then
-  begin
-    InsertLogDownload();
-    mmInfo.Lines.Add(Detail + ': baixado com sucesso.');
-  end;
+end;
+
+procedure TViewDownload.DownloadSucess(Sender: TObject);
+begin
+  InsertLogDownload();
 end;
 
 procedure TViewDownload.InsertLogDownload;
@@ -130,48 +131,47 @@ begin
   fork := TThread.CreateAnonymousThread(
     procedure
     var
-      InQueue: Integer;
+      LPosition, InQueue: Integer;
       Detail: String;
     begin
       DownloadFile.StartDownload;
       InQueue := 0;
 
-      while DownloadFile.IsDownloading do
+      while True do
       begin
+        if not DownloadFile.IsDownloading then
+          break;
 
         if DownloadFile.Status = dsNone then
           Continue;
 
         if (DownloadFile.FileInQueue <> InQueue) then
         begin
-          if DownloadFile.FileName = '' then
-            Continue;
           Detail := Format('%s - %d/%d', [DownloadFile.FileName, DownloadFile.FileInQueue, DownloadFile.TotalFilesInQueue]);
           InQueue := DownloadFile.FileInQueue;
           ProgressBar1.Max := 100;
           ProgressBar1.Position := 0;
         end;
 
-        TThread.Synchronize(TThread.CurrentThread,
-          procedure
-          begin
-            UpdateGUI(Detail);
-          end);
-      end;
-
-      TThread.Synchronize(TThread.CurrentThread,
-        procedure
+        if DownloadFile.Position <> LPosition then
         begin
-          DownloadFinished();
-        end);
-
+          LPosition := DownloadFile.Position;
+          TThread.Synchronize(TThread.CurrentThread,
+            procedure
+            begin
+              UpdateGUI(Detail);
+            end);
+        end;
+      end;
     end);
+
+  fork.OnTerminate := DownloadFinished;
   fork.FreeOnTerminate := True;
   fork.Start;
 
 end;
 
-procedure TViewDownload.DownloadFinished;
+procedure TViewDownload.DownloadFinished(Sender: TObject);
 var
   ErrorMessage: String;
 begin
@@ -299,7 +299,7 @@ begin
   btAction.Caption := 'Cancelar';
   DownloadFile.DownloadFolder := DownloadFolder;
   DownloadFile.FilesToDownload := FilesToDownload;
-
+  DownloadFile.OnSuccess := DownloadSucess;
   ForkGUI();
 end;
 

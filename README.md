@@ -28,6 +28,7 @@ A classe principal, TDownloadFile, possuí os seguintes métodos e propriedades 
 - TotalFilesInQueue - total de arquivos na fila
 - FileInQueue - indice do arquivo que está sendo baixado no momento
 - Status - indicador de status do arquivo atual 
+- OnSuccess - procedimento a ser executado em caso de sucesso no download
 
 Além da engine, a View pode ser melhorada em demasia, no que diz respeito a sua arquitetura, como aplicar o uso de actions para manipular ações e textos dos botões dinâmicos, infelizmente faltou tempo para estes detalhes.
 

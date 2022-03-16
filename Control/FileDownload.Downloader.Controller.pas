@@ -51,6 +51,7 @@ type
     FEndTime: TDateTime;
     FUrl: String;
     FListOfErrors: TStringList;
+    FOnSuccess: TNotifyEvent;
     procedure OnRequestCompleted(const Sender: TObject; const AResponse: IHTTPResponse);
     procedure ClearList;
     procedure setFilesToDownload(const Value: TStringDynArray);
@@ -71,6 +72,7 @@ type
     procedure StartDownload;
     procedure Abort;
     procedure OnReceiveData(const Sender: TObject; AContentLength, AReadCount: Int64; var Abort: Boolean);
+    property OnSuccess: TNotifyEvent read FOnSuccess write FOnSuccess;
     property FilesToDownload: TStringDynArray read FFilesToDownload write setFilesToDownload;
     property Position: Integer read FPosition;
     property IsDownloading: Boolean read FIsDownloading;
@@ -170,11 +172,13 @@ begin
 
   if AResponse.StatusCode = FILE_NOT_FOUND then
   begin
-    ListOfErrors.Add(FFileName+' não encontrado');
+    ListOfErrors.Add(TimeToStr(now) + '> "' + FFileName + '": não encontrado');
     FDownloadStatus := TDownloadStatus.dsNotFound;
     FHasContent := False;
     Exit;
   end;
+  FDownloadStatus := TDownloadStatus.dsDone;
+  ListOfErrors.Add(TimeToStr(now) + '> "' + FFileName + '": baixado com sucesso');
 
 {$IFDEF USING_ATTACHMENT}
   FFileName := ExtractAttachmentFileName(AResponse.GetHeaders);
@@ -185,13 +189,13 @@ begin
   if FHasContent then
   begin
     FileName := FDownloadDirectory + TPath.DirectorySeparatorChar + FFileName;
-    DeleteFile(FFileName);
+    DeleteFile(FileName);
     FDownloadStatus := TDownloadStatus.dsDone;
-    FEndTime := Now();
+    FEndTime := now();
     if RenameFile(FTemporaryFileName, FileName) then
     begin
-      FDownloadStatus := TDownloadStatus.dsDone;
       DeleteFile(FTemporaryFileName);
+      FOnSuccess(Self);
     end;
   end;
 
@@ -255,6 +259,7 @@ end;
 
 function TDownloadFile.CreateStreamFile(const AURL: String): Boolean;
 begin
+  FDownloadStatus := TDownloadStatus.dsNone;
   FTemporaryFileName := TPath.GetTempFileName;
   FFileName := ExtractFileNameFromUrl(AURL);
   try
@@ -263,27 +268,17 @@ begin
   except
     Result := False;
   end;
+  Inc(FFileInQueue);
 end;
 
 function TDownloadFile.BeginDownload(const AURL: String): Boolean;
 begin
   FUrl := AURL;
-  FDownloadStatus := TDownloadStatus.dsDownloading;
-  FStartTime := Now();
+  FStartTime := now();
   FEndTime := FStartTime;
-  Result := CreateStreamFile(Url);
-
-  if Result then
-  begin
-
-    FHttpEngine.Get(AURL, FFileStream);
-
-    if FDownloadStatus = TDownloadStatus.dsNotFound then
-      Sleep(1);
-
-  end;
-  FEndTime := Now();
-
+  FDownloadStatus := TDownloadStatus.dsDownloading;
+  FHttpEngine.Get(AURL, FFileStream);
+  FEndTime := now();
 end;
 
 procedure TDownloadFile.InitializeDownloader;
@@ -294,16 +289,16 @@ begin
     var
       Url: String;
     begin
-      FFileInQueue := 1;
+      FFileInQueue := 0;
 
       try
         for Url in FFilesToDownload do
         begin
 
           try
+            CreateStreamFile(Url);
             if not BeginDownload(Url) then
               Continue;
-
 
           Except
             FDownloadStatus := TDownloadStatus.dsError;
@@ -312,7 +307,6 @@ begin
           if TThread.Current.CheckTerminated then
             Break;
 
-          Inc(FFileInQueue);
         end;
 
       finally
