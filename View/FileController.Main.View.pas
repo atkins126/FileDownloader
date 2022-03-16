@@ -370,7 +370,6 @@ end;
 
 procedure TViewDownload.ResetLogDownloadGrid;
 begin
-  // sgLogDownload.RowCount := 0;
   sgLogDownload.RowCount := 2;
   sgLogDownload.FixedRows := 1;
   sgLogDownload.Cells[0, 0] := 'Código';
